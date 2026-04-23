@@ -1,449 +1,356 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-
-interface SectionVisibility {
-  hero: boolean;
-  services: boolean;
-  work: boolean;
-  about: boolean;
-  contact: boolean;
-}
-
-const CLIENTS = [
-  { name: "Mercedes-Benz", service: "VFX Campaign" },
-  { name: "Gulf Bank", service: "Social Media" },
-  { name: "IKEA Kuwait", service: "Content Creation" },
-  { name: "BYD", service: "Launch Campaign" },
-  { name: "Honda Alghanim", service: "TikTok Management" },
-  { name: "Virgin Mobile", service: "Branding" },
-  { name: "KIB", service: "Video Production" },
-  { name: "Hongqi Alghanim", service: "Social Media" },
-];
+import { useEffect, useState, useCallback } from "react";
 
 const SERVICES = [
-  {
-    id: "vfx",
-    name: "VFX & 3D",
-    desc: "Cinematic visual effects and 3D animation that make brands impossible to ignore.",
-    position: "left",
-    color: "#ff6622",
-  },
-  {
-    id: "social",
-    name: "Social Media",
-    desc: "Strategy, content, and management that turns followers into customers.",
-    position: "center",
-    color: "#0088ff",
-  },
-  {
-    id: "brand",
-    name: "Branding",
-    desc: "Identity systems that feel premium, timeless, and distinctly yours.",
-    position: "right",
-    color: "#8833ff",
-  },
+  "Creative Direction",
+  "VFX Production",
+  "3D Animation",
+  "CGI & Rendering",
+  "Social Media",
+  "Branding",
+  "Motion Design",
+  "Content Strategy",
+  "Interactive Design",
+  "Campaign Launch",
+];
+
+const CLIENTS = [
+  "Mercedes-Benz", "Gulf Bank", "IKEA", "BYD",
+  "Honda Alghanim", "Hongqi Alghanim", "Virgin Mobile",
+  "Kuwait International Bank", "Costa Coffee",
+  "NBK", "Trolley", "Jahez", "Zain", "GIG",
+  "Cadillac", "Ford", "BMW", "MG",
+  "Caribou Coffee", "Future Kid",
+];
+
+const AWARDS = [
+  { label: "Site of the Year",        count: "001", org: "Awwwards" },
+  { label: "Developer Award",         count: "001", org: "Awwwards" },
+  { label: "Site of the Day",         count: "016", org: "Awwwards" },
+  { label: "Site of the Year",        count: "001", org: "FWA" },
+  { label: "Agency of the Year",      count: "001", org: "CSSDA" },
 ];
 
 export default function DOMOverlay() {
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const scrollRef = useRef(0);
+  const [t, setT] = useState(0);
 
+  // Poll the ScrollControls scroller div for scroll position
   useEffect(() => {
-    const handleScroll = () => {
-      const el = document.querySelector("[data-lenis-scroller]") as HTMLElement;
-      const scrollEl = el || window;
-      const scrollY =
-        el?.scrollTop ?? window.scrollY;
-      const maxScroll =
-        (el?.scrollHeight ?? document.body.scrollHeight) - window.innerHeight;
-      const progress = Math.min(scrollY / maxScroll, 1);
-      scrollRef.current = progress;
-      setScrollProgress(progress);
+    let scroller: HTMLElement | null = null;
+    let raf: number;
+
+    const findAndBind = () => {
+      // ScrollControls creates a div with overflow-y: auto or scroll
+      const divs = Array.from(document.querySelectorAll("div")) as HTMLElement[];
+      scroller = divs.find(
+        (d) => d.style.overflowY === "auto" || d.style.overflowY === "scroll"
+      ) || null;
     };
 
-    // Also listen on the ScrollControls internal div
-    const observer = new MutationObserver(() => {
-      const scroller = document.querySelector("[data-lenis-scroller]");
+    const tick = () => {
+      if (!scroller) findAndBind();
       if (scroller) {
-        scroller.addEventListener("scroll", handleScroll);
-        observer.disconnect();
+        const max = scroller.scrollHeight - scroller.clientHeight;
+        if (max > 0) setT(scroller.scrollTop / max);
       }
-    });
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Poll for ScrollControls internal container
-    const interval = setInterval(() => {
-      const inner = document.querySelector(
-        'div[style*="overflow-y: auto"]'
-      ) as HTMLElement;
-      if (inner) {
-        inner.addEventListener("scroll", handleScroll, { passive: true });
-        clearInterval(interval);
-      }
-    }, 200);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      clearInterval(interval);
+      raf = requestAnimationFrame(tick);
     };
+
+    // Start after short delay to let Canvas mount
+    const timeout = setTimeout(() => { raf = requestAnimationFrame(tick); }, 800);
+    return () => { clearTimeout(timeout); cancelAnimationFrame(raf); };
   }, []);
 
-  const t = scrollProgress;
+  // Range opacity helper
+  const op = (inLow: number, inHigh: number, outLow = 0, outHigh = 1) => {
+    const v = Math.max(0, Math.min(1, (t - inLow) / (inHigh - inLow)));
+    return outLow + v * (outHigh - outLow);
+  };
 
-  // Visibility ranges
-  const heroOpacity = t < 0.12 ? 1 : t < 0.18 ? 1 - (t - 0.12) / 0.06 : 0;
-  const servicesOpacity =
-    t < 0.15 ? 0 : t < 0.22 ? (t - 0.15) / 0.07 : t < 0.38 ? 1 : t < 0.45 ? 1 - (t - 0.38) / 0.07 : 0;
-  const workOpacity =
-    t < 0.4 ? 0 : t < 0.47 ? (t - 0.4) / 0.07 : t < 0.62 ? 1 : t < 0.68 ? 1 - (t - 0.62) / 0.06 : 0;
-  const aboutOpacity =
-    t < 0.65 ? 0 : t < 0.72 ? (t - 0.65) / 0.07 : t < 0.83 ? 1 : t < 0.88 ? 1 - (t - 0.83) / 0.05 : 0;
-  const contactOpacity =
-    t < 0.85 ? 0 : t < 0.92 ? (t - 0.85) / 0.07 : 1;
+  // Fade in then out
+  const section = (fadeIn: [number, number], fadeOut: [number, number]) => {
+    const a = op(fadeIn[0], fadeIn[1]);
+    const b = 1 - op(fadeOut[0], fadeOut[1]);
+    return Math.min(a, b);
+  };
+
+  const heroOp      = section([0.00, 0.03], [0.07, 0.10]);
+  const manifestoOp = section([0.07, 0.10], [0.16, 0.20]);
+  const astronautOp = section([0.17, 0.21], [0.26, 0.29]);
+  const planetOp    = section([0.27, 0.31], [0.38, 0.42]);
+  const universeOp  = section([0.39, 0.43], [0.48, 0.52]);
+  const floatOp     = section([0.49, 0.53], [0.58, 0.62]);
+  const servicesOp  = section([0.59, 0.63], [0.70, 0.74]);
+  const clientsOp   = section([0.71, 0.75], [0.80, 0.84]);
+  const cardsOp     = section([0.81, 0.85], [0.90, 0.94]);
+  const ctaOp       = section([0.91, 0.95], [1.00, 1.00]);
+
+  // Services word stagger
+  const serviceWords = SERVICES.map((s, i) => {
+    const wordT = op(0.60 + i * 0.008, 0.63 + i * 0.008);
+    return { label: s, op: wordT };
+  });
+
+  // Client stagger
+  const clientWords = CLIENTS.map((c, i) => {
+    const wordT = op(0.72 + i * 0.005, 0.75 + i * 0.005);
+    return { label: c, op: wordT };
+  });
 
   return (
-    <>
-      {/* NAV */}
-      <nav className="nav">
-        <div className="nav-logo">Astroshot</div>
-        <a href="mailto:info@astroshotpm.com" className="nav-cta">
-          Start a Project
-        </a>
+    <div style={{ position: "fixed", inset: 0, zIndex: 10, pointerEvents: "none", overflow: "hidden" }}>
+
+      {/* ── NAV ── */}
+      <nav style={{
+        position: "absolute", top: 0, left: 0, right: 0,
+        padding: "2rem 3.5rem", display: "flex",
+        justifyContent: "space-between", alignItems: "center",
+        pointerEvents: "all",
+      }}>
+        <span style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+          ASTROSHOT
+        </span>
+        <a href="mailto:info@astroshotpm.com" style={{
+          fontSize: "0.72rem", letterSpacing: "0.18em",
+          textTransform: "uppercase", color: "#00ff88",
+          textDecoration: "none",
+        }}>Start a Project</a>
       </nav>
 
-      {/* ——————————————————— HERO ——————————————————— */}
-      <div
-        className="section-overlay"
-        style={{ opacity: heroOpacity, transition: "opacity 0.4s ease" }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            transform: `translateY(${t * -80}px)`,
-            transition: "transform 0.1s linear",
-          }}
-        >
-          <p
-            className="label"
-            style={{ marginBottom: "1.5rem", letterSpacing: "0.25em" }}
-          >
-            Kuwait · GCC · The World
-          </p>
-          <h1 className="display-xl" style={{ color: "#f0f0f0" }}>
-            ASTROSHOT
-          </h1>
-          <p
-            className="body-text"
-            style={{
-              margin: "1.5rem auto 0",
-              textAlign: "center",
-              opacity: 0.7,
-            }}
-          >
-            We Create What Others Only Imagine
-          </p>
-          <div
-            className="scroll-hint"
-            style={{
-              marginTop: "3rem",
-              fontSize: "0.75rem",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(240,240,240,0.4)",
-              opacity: t < 0.02 ? 1 : Math.max(0, 1 - t / 0.05),
-            }}
-          >
-            Scroll to Explore ↓
-          </div>
-        </div>
-      </div>
-
-      {/* ——————————————————— SERVICES ——————————————————— */}
-      <div
-        className="section-overlay"
-        style={{
-          opacity: servicesOpacity,
-          transition: "opacity 0.4s ease",
-          alignItems: "flex-end",
-          paddingBottom: "6rem",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "1200px", padding: "0 4rem" }}>
-          <p className="label" style={{ marginBottom: "0.5rem" }}>
-            What We Do
-          </p>
-          <h2 className="display-lg" style={{ marginBottom: "3rem" }}>
-            Our Services
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "2rem",
-            }}
-          >
-            {SERVICES.map((s) => (
-              <div key={s.id}>
-                <div
-                  style={{
-                    width: "40px",
-                    height: "2px",
-                    background: s.color,
-                    marginBottom: "1rem",
-                  }}
-                />
-                <h3
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.05em",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  {s.name}
-                </h3>
-                <p
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "rgba(240,240,240,0.55)",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {s.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ——————————————————— WORK ——————————————————— */}
-      <div
-        className="section-overlay"
-        style={{
-          opacity: workOpacity,
-          transition: "opacity 0.4s ease",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "0 4rem",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "1200px" }}>
-          <p className="label" style={{ marginBottom: "0.5rem" }}>
-            Our Clients
-          </p>
-          <h2
-            className="display-lg"
-            style={{ marginBottom: "0.5rem" }}
-          >
-            Work That Moves
-          </h2>
-          <div
-            style={{
-              width: "60px",
-              height: "2px",
-              background: "#00ff88",
-              margin: "1.5rem 0",
-            }}
-          />
-
-          {/* Stat */}
-          <div style={{ marginBottom: "3rem" }}>
-            <span
-              style={{
-                fontSize: "clamp(3rem, 8vw, 7rem)",
-                fontWeight: 800,
-                color: "#00ff88",
-                letterSpacing: "-0.03em",
-              }}
-            >
-              500M+
-            </span>
-            <p
-              className="label"
-              style={{ marginTop: "0.25rem", color: "rgba(240,240,240,0.5)" }}
-            >
-              Organic Views Generated
-            </p>
-          </div>
-
-          {/* Client grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "1.5rem 2rem",
-            }}
-          >
-            {CLIENTS.map((c) => (
-              <div key={c.name}>
-                <p
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "0.95rem",
-                    marginBottom: "0.2rem",
-                  }}
-                >
-                  {c.name}
-                </p>
-                <p
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "#00ff88",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {c.service}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ——————————————————— ABOUT ——————————————————— */}
-      <div
-        className="section-overlay"
-        style={{
-          opacity: aboutOpacity,
-          transition: "opacity 0.4s ease",
-          justifyContent: "flex-end",
-          alignItems: "flex-start",
-          padding: "0 4rem 6rem",
-        }}
-      >
-        <div style={{ maxWidth: "480px" }}>
-          <p className="label" style={{ marginBottom: "1rem" }}>
-            About Astroshot
-          </p>
-          <h2
-            className="display-lg"
-            style={{ marginBottom: "1.5rem", fontSize: "clamp(2rem, 4vw, 3.5rem)" }}
-          >
-            Premium.<br />Cinematic.<br />Impossible to ignore.
-          </h2>
-          <p className="body-text">
-            We blend VFX, 3D, and creative strategy to produce work that people
-            stop, watch, and remember. From Kuwait to the world.
-          </p>
-          <div
-            style={{
-              marginTop: "2rem",
-              display: "flex",
-              gap: "2rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {[
-              ["10+", "Years of Creative Work"],
-              ["50+", "Brands Served"],
-              ["500M+", "Views Generated"],
-            ].map(([num, label]) => (
-              <div key={num}>
-                <p
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: "#00ff88",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {num}
-                </p>
-                <p
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "rgba(240,240,240,0.5)",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ——————————————————— CONTACT ——————————————————— */}
-      <div
-        className="section-overlay"
-        style={{
-          opacity: contactOpacity,
-          transition: "opacity 0.4s ease",
-          flexDirection: "column",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: "0 2rem",
-        }}
-      >
-        <p className="label" style={{ marginBottom: "1.5rem" }}>
-          Ready to Create?
+      {/* ── HERO ── */}
+      <div style={{ ...center, opacity: heroOp, transform: `translateY(${t * -120}px)` }}>
+        <p style={label}>Kuwait · GCC · The World</p>
+        <h1 style={{ ...displayXL, fontSize: "clamp(4rem, 14vw, 13rem)", lineHeight: 0.88 }}>
+          ASTROSHOT
+        </h1>
+        <p style={{ ...bodyText, marginTop: "1.5rem", textAlign: "center" }}>
+          We Create What Others Only Imagine
         </p>
-        <h2
-          className="display-xl"
-          style={{
-            fontSize: "clamp(2.5rem, 7vw, 7rem)",
-            marginBottom: "2rem",
-            maxWidth: "900px",
-          }}
-        >
-          Let&apos;s Build Something Cinematic
+        <p style={{
+          marginTop: "3rem", fontSize: "0.7rem",
+          letterSpacing: "0.22em", textTransform: "uppercase",
+          color: "rgba(255,255,255,0.25)",
+          animation: "bounce 2s ease-in-out infinite",
+        }}>
+          Scroll to Explore ↓
+        </p>
+      </div>
+
+      {/* ── MANIFESTO ── */}
+      <div style={{ ...center, opacity: manifestoOp, padding: "0 3rem", maxWidth: "900px", margin: "0 auto", left: 0, right: 0 }}>
+        <p style={{ ...label, marginBottom: "1.5rem" }}>Our Approach</p>
+        <h2 style={{
+          fontSize: "clamp(2.2rem, 5vw, 5rem)",
+          fontWeight: 800, lineHeight: 1.05,
+          letterSpacing: "-0.025em", textAlign: "center",
+          color: "#f0f0f0",
+        }}>
+          A worldwide team of specialists in design, motion, 3D, and technology — turning ambitious ideas into{" "}
+          <em style={{ color: "#00ff88", fontStyle: "normal" }}>immersive digital experiences</em>.
         </h2>
-        <p
-          className="body-text"
-          style={{
-            textAlign: "center",
-            margin: "0 auto 3rem",
-            maxWidth: "400px",
-          }}
-        >
+      </div>
+
+      {/* ── ASTRONAUT / S2 ── */}
+      <div style={{ ...centerLeft, opacity: astronautOp, padding: "0 3.5rem" }}>
+        <p style={{ ...label, marginBottom: "1rem" }}>In The Field</p>
+        <h2 style={{ ...displayLG, maxWidth: "420px" }}>
+          We Float<br />Where Others<br />Can&apos;t Reach
+        </h2>
+        <p style={{ ...bodyText, marginTop: "1.2rem" }}>
+          Premium creative execution from Kuwait to the world. 500M+ organic views and counting.
+        </p>
+      </div>
+
+      {/* ── PLANET / S3 ── */}
+      <div style={{ ...centerRight, opacity: planetOp, padding: "0 3.5rem" }}>
+        <p style={{ ...label, marginBottom: "1rem" }}>Scale</p>
+        <h2 style={{ ...displayLG, textAlign: "right", maxWidth: "380px" }}>
+          Built<br />For The<br />Biggest Brands
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "1.5rem", alignItems: "flex-end" }}>
+          {["Mercedes", "Gulf Bank", "IKEA", "BYD", "Honda"].map(b => (
+            <span key={b} style={{ fontSize: "0.8rem", letterSpacing: "0.1em", color: "rgba(240,240,240,0.45)", textTransform: "uppercase" }}>{b}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── UNIVERSE / S4 ── */}
+      <div style={{ ...center, opacity: universeOp }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
+          <p style={{ ...label }}>Recognition</p>
+          <h2 style={{ ...displayXL, fontSize: "clamp(3rem, 10vw, 9rem)", textAlign: "center" }}>
+            AWARD<br />WINNING
+          </h2>
+          <div style={{ display: "flex", gap: "3rem", marginTop: "2rem", flexWrap: "wrap", justifyContent: "center" }}>
+            {AWARDS.map((a) => (
+              <div key={a.label} style={{ textAlign: "center" }}>
+                <p style={{ fontSize: "clamp(1.5rem, 3vw, 2.5rem)", fontWeight: 800, color: "#00ff88", letterSpacing: "-0.02em" }}>{a.count}</p>
+                <p style={{ fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(240,240,240,0.4)", marginTop: "0.2rem" }}>{a.org}</p>
+                <p style={{ fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(240,240,240,0.25)" }}>{a.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── FLOAT OBJECTS / S5 ── */}
+      <div style={{ ...center, opacity: floatOp }}>
+        <p style={{ ...label, marginBottom: "1rem" }}>500M+</p>
+        <h2 style={{ ...displayXL, fontSize: "clamp(3.5rem, 12vw, 11rem)", textAlign: "center", color: "#00ff88" }}>
+          ORGANIC<br />VIEWS
+        </h2>
+        <p style={{ ...bodyText, textAlign: "center", marginTop: "1.2rem" }}>
+          Content that earns attention, not just impressions.
+        </p>
+      </div>
+
+      {/* ── SERVICES TYPOGRAPHY / S6 ── */}
+      <div style={{ ...center, opacity: servicesOp, flexDirection: "column", gap: "0" }}>
+        <p style={{ ...label, marginBottom: "2rem" }}>Area of Expertise</p>
+        <div style={{ textAlign: "center" }}>
+          {serviceWords.map(({ label: l, op: o }, i) => (
+            <span key={i} style={{
+              display: "inline-block",
+              fontSize: "clamp(1.8rem, 4vw, 4.5rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              textTransform: "uppercase",
+              opacity: o,
+              transform: `translateY(${(1 - o) * 24}px)`,
+              transition: "none",
+              color: i % 3 === 0 ? "#00ff88" : "#f0f0f0",
+              marginRight: i < serviceWords.length - 1 ? "0.6em" : 0,
+            }}>{l}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── CLIENTS / S7 ── */}
+      <div style={{ ...center, opacity: clientsOp, flexDirection: "column" }}>
+        <p style={{ ...label, marginBottom: "2rem" }}>Trusted By</p>
+        <div style={{
+          display: "flex", flexWrap: "wrap", justifyContent: "center",
+          gap: "1rem 2.5rem", maxWidth: "860px",
+        }}>
+          {clientWords.map(({ label: l, op: o }, i) => (
+            <span key={i} style={{
+              fontSize: "clamp(0.8rem, 1.8vw, 1.3rem)",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: o * 0.85,
+              transform: `translateY(${(1 - o) * 12}px)`,
+              color: "#f0f0f0",
+              whiteSpace: "nowrap",
+            }}>{l}</span>
+          ))}
+        </div>
+        <div style={{ marginTop: "3rem", display: "flex", gap: "4rem" }}>
+          {[["50+", "Clients"], ["10+", "Years"], ["500M+", "Views"]].map(([n, l]) => (
+            <div key={n} style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "2.5rem", fontWeight: 800, color: "#00ff88", letterSpacing: "-0.03em" }}>{n}</p>
+              <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,240,240,0.35)" }}>{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── WORK CARDS / S8 ── */}
+      <div style={{ ...top, opacity: cardsOp, padding: "3rem 3.5rem 0" }}>
+        <p style={{ ...label, marginBottom: "0.4rem" }}>Selected Work</p>
+        <h2 style={{ ...displayLG, fontSize: "clamp(1.8rem, 4vw, 3.5rem)" }}>Work That Moves</h2>
+      </div>
+
+      {/* ── CTA / S9 ── */}
+      <div style={{ ...center, opacity: ctaOp, flexDirection: "column", textAlign: "center", padding: "0 2rem" }}>
+        <p style={{ ...label, marginBottom: "1.5rem" }}>Ready?</p>
+        <h2 style={{ ...displayXL, fontSize: "clamp(2.5rem, 8vw, 8rem)", maxWidth: "900px", textAlign: "center" }}>
+          LET&apos;S BUILD SOMETHING CINEMATIC
+        </h2>
+        <p style={{ ...bodyText, textAlign: "center", margin: "1.5rem auto 2.5rem", maxWidth: "380px" }}>
           Tell us your vision. We&apos;ll make it impossible to ignore.
         </p>
         <a
           href="mailto:info@astroshotpm.com"
-          className="cta-btn"
-          style={{ textDecoration: "none", display: "inline-flex" }}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: "0.5rem",
+            padding: "1rem 2.8rem",
+            background: "#00ff88", color: "#000",
+            fontWeight: 700, fontSize: "0.82rem",
+            letterSpacing: "0.14em", textTransform: "uppercase",
+            textDecoration: "none", pointerEvents: "all",
+          }}
         >
           Start a Project →
         </a>
-        <div
-          style={{
-            marginTop: "4rem",
-            display: "flex",
-            gap: "2.5rem",
-            justifyContent: "center",
-            fontSize: "0.75rem",
-            letterSpacing: "0.1em",
-            color: "rgba(240,240,240,0.4)",
-            textTransform: "uppercase",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{
+          marginTop: "3rem", display: "flex", gap: "2.5rem", justifyContent: "center",
+          fontSize: "0.7rem", letterSpacing: "0.12em",
+          color: "rgba(240,240,240,0.3)", textTransform: "uppercase", flexWrap: "wrap",
+        }}>
           <span>info@astroshotpm.com</span>
           <span>+965 98000197</span>
           <span>@Astroshotmedia</span>
-          <span>Kuwait</span>
+          <span>Kuwait · Al Salam Tower</span>
         </div>
-
-        {/* Footer */}
-        <p
-          style={{
-            position: "absolute",
-            bottom: "2rem",
-            fontSize: "0.65rem",
-            letterSpacing: "0.1em",
-            color: "rgba(240,240,240,0.2)",
-            textTransform: "uppercase",
-          }}
-        >
-          © 2025 Astroshot Project Management Company · Al Salam Tower, Kuwait
-        </p>
       </div>
-    </>
+
+      <style>{`
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
+      `}</style>
+    </div>
   );
 }
+
+// ── Style constants ──
+const center: React.CSSProperties = {
+  position: "absolute", inset: 0,
+  display: "flex", flexDirection: "column",
+  alignItems: "center", justifyContent: "center",
+  transition: "opacity 0.5s ease",
+};
+const centerLeft: React.CSSProperties = {
+  position: "absolute", inset: 0,
+  display: "flex", flexDirection: "column",
+  alignItems: "flex-start", justifyContent: "center",
+  transition: "opacity 0.5s ease",
+};
+const centerRight: React.CSSProperties = {
+  position: "absolute", inset: 0,
+  display: "flex", flexDirection: "column",
+  alignItems: "flex-end", justifyContent: "center",
+  transition: "opacity 0.5s ease",
+};
+const top: React.CSSProperties = {
+  position: "absolute", top: 0, left: 0, right: 0,
+  transition: "opacity 0.5s ease",
+};
+const displayXL: React.CSSProperties = {
+  fontSize: "clamp(3.5rem, 12vw, 11rem)",
+  fontWeight: 800,
+  letterSpacing: "-0.03em",
+  lineHeight: 0.88,
+  textTransform: "uppercase",
+  color: "#f0f0f0",
+};
+const displayLG: React.CSSProperties = {
+  fontSize: "clamp(2rem, 5vw, 4.5rem)",
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
+  lineHeight: 1.0,
+  textTransform: "uppercase",
+  color: "#f0f0f0",
+};
+const label: React.CSSProperties = {
+  fontSize: "0.7rem",
+  letterSpacing: "0.22em",
+  textTransform: "uppercase",
+  color: "#00ff88",
+};
+const bodyText: React.CSSProperties = {
+  fontSize: "clamp(0.95rem, 1.8vw, 1.2rem)",
+  fontWeight: 300,
+  lineHeight: 1.65,
+  color: "rgba(240,240,240,0.6)",
+  maxWidth: "480px",
+};
